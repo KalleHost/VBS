@@ -1,0 +1,113 @@
+
+
+Set objExcel = CreateObject("Excel.Application")
+Set objWorkbook = objExcel.Workbooks.Open _
+    ("C:\vbs\Static_IP.xlsx")
+Dim correct
+intRow = 2
+
+
+Do Until objExcel.Cells(intRow,1).Value = ""
+    Dim WshShell, answer, firma
+	Set WshShell = WScript.CreateObject("Wscript.Shell")
+	answer=answer & "Firma " & intRow -1 & ": " & objExcel.Cells(intRow, 1).Value & vbNewLine
+	
+  	intRow = intRow + 1
+Loop
+
+
+answer=answer & vbNewLine & "Wählen Sie " & intRow - 1 & " für DHCP" & vbNewLine & vbNewLine & "Bitte geben Sie die passende Nummer der Firma ein: "
+correct=False
+Do Until correct=True
+	correct=False
+	firma=InputBox (answer)
+	If IsNumeric (firma) Then 
+	firma=Int(firma)
+		If firma<intRow And firma>=1 Then
+			correct=True
+		End If
+	End If
+Loop
+firma=firma + 1
+
+
+Dim ipaddress, submask, gateway
+ipaddress = objExcel.Cells(firma, 2).Value
+submask = objExcel.Cells(firma, 3).Value
+gateway = objExcel.Cells(firma, 4).Value
+
+
+
+
+
+
+Dim adapter, liste, nummer, richtig
+nummer = 1
+
+strComputer = "."
+Set objWMIService = GetObject("winmgmts:" _
+    & "{impersonationLevel=impersonate}!\\" & strComputer & "\root\cimv2")
+
+Set colItems = objWMIService.ExecQuery("Select * from Win32_NetworkAdapter")
+
+
+For Each objItem in colItems
+    
+    If CStr(objItem.Name) <> CStr("Microsoft-ISATAP-Adapter") Then
+    adapter=adapter & "Adapter "& nummer & ": " & objItem.Name & vbNewLine
+    nummer = nummer + 1
+    Else 
+    nummer = nummer + 0
+    End If
+    Next
+    
+    richtig=False
+Do Until richtig=True
+	richtig=False
+	liste=InputBox (adapter)
+	If IsNumeric (liste) Then 
+		liste=Int(liste)
+		If liste<nummer And liste>=1 Then
+			richtig=True
+			End If
+		End If
+	Loop
+	
+	
+	
+	
+	
+	
+	
+' Assign a Static IP Address
+
+strComputer = "."
+Set objWMIService = GetObject("winmgmts:" _
+    & "{impersonationLevel=impersonate}!\\" & strComputer & "\root\cimv2")
+
+Set colNetAdapters = objWMIService.ExecQuery _
+    ("Select * from Win32_NetworkAdapterConfiguration where IPEnabled=TRUE")
+
+strIPAddress = Array(ipaddress)
+strSubnetMask = Array(submask)
+strGateway = Array(gateway)
+strGatewayMetric = Array(1)
+
+
+If objExcel.Cells(firma, 2).Value = "" Then
+	For Each objNetAdapter In colNetAdapters
+    	errEnable = objNetAdapter.EnableDHCP()
+    	WScript.Echo "DHCP is enabled."
+  	Next
+Else
+			For Each objNetAdapter in colNetAdapters
+    			errEnable = objNetAdapter.EnableStatic(strIPAddress, strSubnetMask)
+    			errGateways = objNetAdapter.SetGateways(strGateway, strGatewaymetric)
+    		If errEnable = 0 Then
+        		WScript.Echo "The IP address has been changed."
+    		Else
+        		WScript.Echo "The IP address could not be changed."
+    		End If
+    		Next
+End If	
+objExcel.Quit
